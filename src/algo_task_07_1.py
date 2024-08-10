@@ -1,134 +1,152 @@
-class AVLNode:
-    def __init__(self, key=None):
-        self.left = None
-        self.right = None
-        self.key = key
-        self.height = 1
+class AVLTree:
+    class Node:  # Внутрішній клас для представлення вузлів дерева
+        def __init__(self, key):
+            self.key = key  # Значення, яке зберігається в вузлі
+            self.left = None  # Лівий нащадок
+            self.right = None  # Правий нащадок
+            self.height = 1  # Висота нового вузла, початкове значення 1
 
-    def __str__(self):
-        return f"({self.left})<-{self.key}->{self.right}"
+    def __init__(self):
+        self.root = None  # Корінь дерева, спочатку порожній
 
-    def get_height(self, node=None):
+    def __str__(self):  # Метод для виводу дерева "у зрозумілому вигляді"
+
+        levels = []  # Список для зберігання вузлів на кожному рівні
+        self._fill_levels(self.root, 0, levels)  # Заповнюємо список
+        return "\n".join(" ".join(str(node) for node in level) for level in levels)
+
+    # Приватний метод для заповнення списку рівнів
+    def _fill_levels(self, node, level, levels):
+        if node:
+            if len(levels) <= level:  # Якщо рівень ще не існує
+                levels.append([])  # Додаємо новий рівень
+            levels[level].append(node.key)  # Додаємо ключ вузла до рівня
+            # Рекурсивно заповнюємо ліве піддерево
+            self._fill_levels(node.left, level + 1, levels)
+            # Рекурсивно заповнюємо праве піддерево
+            self._fill_levels(node.right, level + 1, levels)
+
+    def insert(self, key):  # Публічний метод для вставки ключа в дерево
+        if not self.root:
+            self.root = self.Node(key)  # Якщо дерево порожнє, створюємо кореневий вузол
+        else:  # Інакше викликаємо метод для вставки
+            self.root = self._insert(self.root, key)
+
+    def _insert(self, node, key):
+        # Приватний метод для вставки ключа в піддерево з коренем `node`
         if not node:
-            return 0
-        return node.height
+            return self.Node(key)  # Якщо досягли пустого місця, створюємо новий вузол
 
-    def get_balance(self):
-        if not self:
-            return 0
-        return self.get_height(self.left) - self.get_height(self.right)
-
-    def left_rotate(self):
-        y = self.right
-        self.right = y.left
-        y.left = self
-
-        # Update heights
-        self.height = 1 + max(self.get_height(self.left), self.get_height(self.right))
-        y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
-
-        return y
-
-    def right_rotate(self):
-        """Виконує праве обертання дерева."""
-        x = self.left
-        T3 = x.right
-
-        x.right = self
-        self.left = T3
-
-        self.height = 1 + max(self.get_height(self.left), self.get_height(self.right))
-        x.height = 1 + max(self.get_height(x.left), self.get_height(x.right))
-
-        return x
-
-    def insert(self, key):
-        """Метод для вставки нового ключа в дерево з урахуванням балансування."""
-        if self.key is None:
-            self.key = key
-            return self
-
-        if key < self.key:
-            if self.left is None:
-                self.left = AVLNode(key)
-            else:
-                self.left = self.left.insert(key)
+        # Стандартна вставка для бінарного дерева пошуку
+        if key < node.key:  # Якщо ключ менший, вставляємо в ліве піддерево
+            node.left = self._insert(node.left, key)
+        elif key > node.key:  # Якщо ключ більший, вставляємо в праве піддерево
+            node.right = self._insert(node.right, key)
         else:
-            if self.right is None:
-                self.right = AVLNode(key)
-            else:
-                self.right = self.right.insert(key)
+            return node  # Дублікати не допускаються
 
-        self.height = 1 + max(self.get_height(self.left), self.get_height(self.right))
+        # Оновлюємо висоту вузла
+        node.height = 1 + max(self.get_height(node.left), self.get_height(node.right))
 
-        balance = self.get_balance()
+        # Отримуємо баланс для перевірки, чи вузол став незбалансованим
+        balance = self.get_balance(node)
 
-        # Лівий лівий випадок
-        if balance > 1 and key < self.left.key:
-            return self.right_rotate()
+        # Виконуємо обертання, якщо вузол став незбалансованим
+        if balance > 1 and key < node.left.key:
+            return self.right_rotate(node)  # Лівий лівий випадок (LL)
+        if balance < -1 and key > node.right.key:
+            return self.left_rotate(node)  # Правий правий випадок (RR)
+        if balance > 1 and key > node.left.key:
+            node.left = self.left_rotate(node.left)  # Лівий правий випадок (LR)
+            return self.right_rotate(node)
+        if balance < -1 and key < node.right.key:
+            node.right = self.right_rotate(node.right)  # Правий лівий випадок (RL)
+            return self.left_rotate(node)
 
-        # Правий правий випадок
-        if balance < -1 and key > self.right.key:
-            return self.left_rotate()
+        return node  # Повертаємо (можливо, оновлений) вузол
 
-        # Лівий правий випадок
-        if balance > 1 and key > self.left.key:
-            self.left = self.left.left_rotate()
-            return self.right_rotate()
+    def left_rotate(self, node):  # Метод для лівого обертання
+        new_root = node.right  # Правий нащадок стає новим коренем
+        node.right = new_root.left  # Зберігаємо лівого нащадка нового кореня
+        new_root.left = node  # Виконуємо обертання
 
-        # Правий лівий випадок
-        if balance < -1 and key < self.right.key:
-            self.right = self.right.right_rotate()
-            return self.left_rotate()
+        # Оновлюємо висоти
+        node.height = 1 + max(self.get_height(node.left), self.get_height(node.right))
+        new_root.height = 1 + max(
+            self.get_height(new_root.left), self.get_height(new_root.right)
+        )
 
-        return self
+        return new_root  # Повертаємо новий корінь
 
-    def max(self):
-        """Метод для знаходження найбільшого значення в дереві."""
-        current = self
-        while current.right is not None:
+    def right_rotate(self, node):  # Метод для правого обертання
+
+        new_root = node.left  # Лівий нащадок стає новим коренем
+        node.left = new_root.right  # Зберігаємо правого нащадка нового кореня
+        new_root.right = node  # Виконуємо обертання
+
+        # Оновлюємо висоти
+        node.height = 1 + max(self.get_height(node.left), self.get_height(node.right))
+        new_root.height = 1 + max(
+            self.get_height(new_root.left), self.get_height(new_root.right)
+        )
+
+        return new_root  # Повертаємо новий корінь
+
+    def get_height(self, node):  # Метод для отримання висоти вузла
+        return node.height if node else 0  # Якщо вузол None, висота 0
+
+    def get_balance(self, node):  # Метод для отримання балансу вузла
+        return self.get_height(node.left) - self.get_height(node.right)
+
+    def max(self):  # Повертає максимальний ключ у дереві
+        if not self.root:
+            return None  # Якщо дерево порожнє, повертаємо None
+        current = self.root
+        while current.right:  # Проходимо правими нащадками
             current = current.right
-        return current.key
+        return current.key if current else None  # Якщо дерево порожнє, повертаємо None
 
     def min(self):
-        """Метод для знаходження найменшого значення в дереві."""
-        current = self
-        while current.left is not None:
+        # Повертає мінімальний ключ у дереві
+        if not self.root:
+            return None  # Якщо дерево порожнє, повертаємо None
+        current = self.root
+        while current.left:  # Проходимо лівими нащадками
             current = current.left
-        return current.key
+        return current.key  # Повертаємо ключ найменшого вузла
+
+    def sum(self):
+        # Публічний метод для обчислення суми всіх значень у дереві
+        return self._sum(self.root)  # Викликаємо приватний метод для обчислення суми
+
+    def _sum(self, node):
+        # Приватний метод для обчислення суми значень у піддереві з коренем `node`
+        if not node:
+            return 0  # Якщо вузол None, повертаємо 0
+        # Рекурсивно обчислюємо суму лівого та правого піддерев,
+        # додаємо значення поточного вузла
+        return node.key + self._sum(node.left) + self._sum(node.right)
 
 
-# Приклад використання
 if __name__ == "__main__":
-    avl_tree = AVLNode()
+    avl_tree = AVLTree()
     keys = [10, 20, 30, 40, 50, 25]
 
     for key in keys:
         avl_tree.insert(key)
 
-    # Виведення дерева
-    print("Дерево:", avl_tree)
+    print("Дерево:\n", avl_tree)
 
-    # Виведення висоти дерева
-    print("Висота дерева:", avl_tree.get_height())
+    print("Максимальний ключ:", avl_tree.max())  # 50
+    print("Мінімальний ключ:", avl_tree.min())  # 10
+    print("Сума всіх значень:", avl_tree.sum())  # 175
 
-    # Виведення балансу дерева
-    print("Баланс дерева:", avl_tree.get_balance())
-
-    # Виведення лівого піддерева
-    print("Ліве піддерево:", avl_tree.left)
-
-    # Виведення правого піддерева
-    print("Праве піддерево:", avl_tree.right)
-
-    # Виведення висоти лівого піддерева
-    print("Висота лівого піддерева:", avl_tree.get_height(avl_tree.left))
-
-    # Виведення висоти правого піддерева
-    print("Висота правого піддерева:", avl_tree.get_height(avl_tree.right))
-
-    # Виведення максимального значення
-    print("Максимальне значення:", avl_tree.max())
-
-    # Виведення мінімального значення
-    print("Мінімальне значення:", avl_tree.min())
+    # # Тестування на порожньому дереві
+    # empty_AVL_tree = AVLTree()
+    # keys = []
+    # for key in keys:
+    #     avl_tree.insert(key)
+    # print("Дерево:\n", empty_AVL_tree)
+    # print("Максимальний ключ:", empty_AVL_tree.max())  # 50
+    # print("Мінімальний ключ:", empty_AVL_tree.min())  # 10
+    # print("Сума всіх значень:", empty_AVL_tree.sum())  # 175
